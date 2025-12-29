@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prom_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    ports:
+      - "9090:9090"
+
+  thanos-sidecar:
+    image: quay.io/thanos/thanos:v0.35.1
+    container_name: thanos-sidecar
+    depends_on:
+      - prometheus
+    volumes:
+      - prom_data:/prometheus
+      - ./thanos/bucket.yml:/etc/thanos/bucket.yml:ro
+    command:
+      - sidecar
+      - "--tsdb.path=/prometheus"
+      - "--prometheus.url=http://prometheus:9090"
+      - "--objstore.config-file=/etc/thanos/bucket.yml"
+    ports:
+      - "10901:10901" # gRPC
+      - "10902:10902" # HTTP
+
+  thanos-query:
+    image: quay.io/thanos/thanos:v0.35.1
+    container_name: thanos-query
+    depends_on:
+      - thanos-sidecar
+    command:
+      - query
+      - "--http-address=0.0.0.0:9090"
+      - "--store=thanos-sidecar:10901"
+    ports:
+      - "9091:9090"
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+volumes:
+  prom_data:
+  minio_data:
