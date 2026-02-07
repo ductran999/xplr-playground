@@ -22,6 +22,12 @@ type DeployParams struct {
 	Replicas      int    `json:"replicas"`
 	Image         string `json:"image"`
 	ContainerPort int    `json:"container_port"`
+
+	Labels DeploymentLabels
+}
+
+type DeploymentLabels struct {
+	ServiceName string `json:"service_name"`
 }
 
 type manifestHandler struct {
