@@ -7,6 +7,6 @@ import (
 )
 
 func MurMur3Hash(plaintext string) string {
-	h1, h2 := murmur3.Sum128([]byte(plaintext))
-	return fmt.Sprintf("%d-%d", h1, h2)
+	h1 := murmur3.Sum64([]byte(plaintext))
+	return fmt.Sprintf("%d", h1)
 }
