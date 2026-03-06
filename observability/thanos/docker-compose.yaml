@@ -20,7 +20,7 @@ services:
       - prometheus
     volumes:
       - prom_data:/prometheus
-      - ./thanos/bucket.yml:/etc/thanos/bucket.yml:ro
+      - ./bucket.yml:/etc/thanos/bucket.yml:ro
     command:
       - sidecar
       - "--tsdb.path=/prometheus"
