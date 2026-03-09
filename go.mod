@@ -12,6 +12,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/common v0.66.1
 	github.com/redis/go-redis/v9 v9.18.0
+	github.com/robfig/cron/v3 v3.0.0
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/zeebo/blake3 v0.2.4
 	go.temporal.io/sdk v1.40.0
