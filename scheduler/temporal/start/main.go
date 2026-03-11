@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
-	greeting "play-ground/temporal"
+	greeting "play-ground/scheduler/temporal"
 
 	"go.temporal.io/sdk/client"
 )

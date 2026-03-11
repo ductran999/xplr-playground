@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
-	"play-ground/embed/handler"
+	"play-ground/golang/embed/handler"
 
 	"github.com/gin-gonic/gin"
 )

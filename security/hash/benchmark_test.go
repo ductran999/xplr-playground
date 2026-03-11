@@ -1,7 +1,7 @@
 package main
 
 import (
-	"play-ground/hash/xcrypto"
+	"play-ground/security/hash/xcrypto"
 	"testing"
 )
 

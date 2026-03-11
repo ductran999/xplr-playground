@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"play-ground/grpc/gen/proto/streampb"
+	"play-ground/api_arch/grpc/gen/proto/streampb"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

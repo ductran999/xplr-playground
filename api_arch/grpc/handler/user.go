@@ -3,7 +3,7 @@ package handler
 import (
 	"context"
 	"log"
-	"play-ground/grpc/gen/proto/userpb"
+	"play-ground/api_arch/grpc/gen/proto/userpb"
 )
 
 type UserServer struct {

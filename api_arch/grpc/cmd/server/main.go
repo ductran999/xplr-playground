@@ -3,9 +3,9 @@ package main
 import (
 	"log"
 	"net"
-	"play-ground/grpc/gen/proto/streampb"
-	"play-ground/grpc/gen/proto/userpb"
-	"play-ground/grpc/handler"
+	"play-ground/api_arch/grpc/gen/proto/streampb"
+	"play-ground/api_arch/grpc/gen/proto/userpb"
+	"play-ground/api_arch/grpc/handler"
 
 	"google.golang.org/grpc"
 )

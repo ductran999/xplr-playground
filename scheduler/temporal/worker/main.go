@@ -2,7 +2,7 @@ package main
 
 import (
 	"log"
-	greeting "play-ground/temporal"
+	greeting "play-ground/scheduler/temporal"
 
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"

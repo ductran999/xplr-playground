@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"play-ground/grpc/gen/proto/streampb"
+	"play-ground/api_arch/grpc/gen/proto/streampb"
 	"time"
 )
 

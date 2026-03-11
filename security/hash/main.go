@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"play-ground/hash/xcrypto"
+	"play-ground/security/hash/xcrypto"
 )
 
 func main() {
