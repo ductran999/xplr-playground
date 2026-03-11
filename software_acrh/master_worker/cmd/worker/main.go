@@ -9,6 +9,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 func main() {
@@ -34,34 +35,74 @@ func main() {
 	}
 	log.Printf("Registered successfully! ClusterID: %s", resp.ClusterId)
 
-	StartTunnel(client, "cluster-uuid-123")
+	StartTunnelLoop(client, "cluster-uuid-123")
 }
 
-func StartTunnel(client pb.AgentServiceClient, clusterID string) {
-	stream, err := client.ConnectTunnel(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
+func StartTunnelLoop(client pb.AgentServiceClient, clusterID string) {
+	backoff := time.Second * 1
+	maxBackoff := time.Minute * 1
 
-	// Goroutine 1: Receive command
+	for {
+		log.Printf("Cluster %s: Attempting to connect to Control Plane...", clusterID)
+
+		// 1. Setup context và metadata
+		md := metadata.Pairs("x-cluster-id", clusterID)
+		ctx := metadata.NewOutgoingContext(context.Background(), md)
+
+		// 2. Open stream
+		stream, err := client.ConnectTunnel(ctx)
+		if err != nil {
+			log.Printf("Connection failed: %v. Retrying in %v", err, backoff)
+			time.Sleep(backoff)
+
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+			continue
+		}
+
+		backoff = time.Second * 1
+		log.Println("Tunnel established successfully.")
+
+		handleStream(stream, clusterID)
+
+		log.Println("Stream connection lost. Reconnecting...")
+	}
+}
+
+func handleStream(stream pb.AgentService_ConnectTunnelClient, clusterID string) {
+	done := make(chan struct{})
+
+	// Goroutine A: Listen cmd from server
 	go func() {
 		for {
 			cmd, err := stream.Recv()
 			if err != nil {
-				log.Printf("Stream closed: %v", err)
+				log.Printf("Recv error: %v", err)
+				close(done)
 				return
 			}
-			log.Printf("Received command: %s", cmd.Action)
+			log.Printf("Executing command: %s", cmd.Action)
 		}
 	}()
 
-	// Goroutine 2: send Heartbeat
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
 	for {
-		log.Println("Agent ping server")
-		stream.Send(&pb.ConnectTunnelRequest{
-			ClusterId: clusterID,
-			Status:    "HEALTHY",
-		})
-		time.Sleep(10 * time.Second)
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			// Send heartbeat
+			err := stream.Send(&pb.ConnectTunnelRequest{
+				ClusterId: clusterID,
+				Status:    "ONLINE",
+			})
+			if err != nil {
+				log.Printf("Send error: %v", err)
+				return
+			}
+		}
 	}
 }
