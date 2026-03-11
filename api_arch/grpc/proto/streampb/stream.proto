@@ -1,20 +1,30 @@
 syntax = "proto3";
 
-package user;
+package streampb;
 
+// go_package defines the import path for the generated Go code.
+// The part after ';' is the package name used in Go.
 option go_package = "play-ground/grpc/gen/proto/streampb;streampb";
 
+// ProvisionService provides APIs for monitoring the provisioning process.
 service ProvisionService {
+
+  // WatchProvision allows a client to subscribe to provisioning events.
+  // The server streams back real-time updates about each provisioning step.
   rpc WatchProvision(
     ProvisionRequest
   ) returns (stream ProvisionEvent);
 }
 
+// ProvisionRequest is sent by the client to start watching
+// the provisioning process of a specific workspace.
 message ProvisionRequest {
-  string workspace_id = 1;
+  string workspace_id = 1; // Unique identifier of the workspace being provisioned
 }
 
+// ProvisionEvent represents a single event in the provisioning workflow.
+// The server streams these events back to the client.
 message ProvisionEvent {
-  string step = 1;
-  string status = 2;
+  string step = 1; // Name of the provisioning step (e.g., "CREATE_NAMESPACE", "DEPLOY_MODEL")
+  string status = 2; // Status of the step (e.g., "STARTED", "RUNNING", "COMPLETED", "FAILED")
 }

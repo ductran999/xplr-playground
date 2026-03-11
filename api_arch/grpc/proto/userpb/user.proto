@@ -2,17 +2,24 @@ syntax = "proto3";
 
 package user;
 
+// go_package specifies the import path and package name for the generated Go code.
+// Format: "<module-path>;<go-package-name>"
 option go_package = "play-ground/grpc/gen/proto/userpb;userpb";
 
+// UserService defines the gRPC service responsible for user-related operations.
 service UserService {
+
+  // GetUser retrieves a user's information by their unique ID.
   rpc GetUser (GetUserRequest) returns (GetUserResponse);
 }
 
+// GetUserRequest represents the request message used to fetch a user.
 message GetUserRequest {
-  int64 id = 1;
+  int64 id = 1; // Unique identifier of the user
 }
 
+// GetUserResponse represents the response message containing user details.
 message GetUserResponse {
-  int64 id = 1;
-  string name = 2;
+  int64 id = 1; // Unique identifier of the user
+  string name = 2; // Name of the user
 }
