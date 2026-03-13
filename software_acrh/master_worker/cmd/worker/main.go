@@ -3,39 +3,35 @@ package main
 import (
 	"context"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	pb "play-ground/software_acrh/master_worker/api/gen/pb/agent/v1"
+	"play-ground/software_acrh/master_worker/internal/worker/app"
+	"play-ground/software_acrh/master_worker/internal/worker/config"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 )
 
 func main() {
-	conn, err := grpc.NewClient("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	appCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	cfg := config.MustLoad()
+
+	w, err := app.Initialize(cfg)
 	if err != nil {
-		log.Fatalln("did not connect:", err.Error())
+		log.Fatalf("init worker failed: %v", err)
 	}
-	defer conn.Close()
+	defer w.Close()
 
-	client := pb.NewAgentServiceClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	resp, err := client.Register(ctx, &pb.RegisterRequest{
-		RegistrationToken: "OK",
-		Hostname:          "my-k8s-node-01",
-		AgentVersion:      "v1.0.0",
-	})
-
-	if err != nil {
-		log.Fatalf("could not register: %v", err)
+	if err := w.Run(appCtx); err != nil {
+		log.Fatalf("agent start error: %v", err)
 	}
-	log.Printf("Registered successfully! ClusterID: %s", resp.ClusterId)
 
-	StartTunnelLoop(client, "cluster-uuid-123")
+	// StartTunnelLoop(client, "cluster-uuid-123")
 }
 
 func StartTunnelLoop(client pb.AgentServiceClient, clusterID string) {
