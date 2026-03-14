@@ -4,15 +4,16 @@ import (
 	"context"
 	"log"
 	"log/slog"
-	agentv1 "play-ground/software_acrh/master_worker/api/gen/pb/agent/v1"
-	"play-ground/software_acrh/master_worker/internal/worker/config"
-	"play-ground/software_acrh/master_worker/internal/worker/registration/infra"
-	"play-ground/software_acrh/master_worker/internal/worker/registration/usecase"
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+
+	agentv1 "play-ground/software_acrh/master_worker/api/gen/pb/agent/v1"
+	"play-ground/software_acrh/master_worker/internal/worker/platform/config"
+	identityinfra "play-ground/software_acrh/master_worker/internal/worker/platform/identity/infra"
+	identityuc "play-ground/software_acrh/master_worker/internal/worker/platform/identity/usecase"
+	gclient "play-ground/software_acrh/master_worker/internal/worker/platform/shared/grpc"
 )
 
 type WorkerApp struct {
@@ -21,14 +22,13 @@ type WorkerApp struct {
 	Conn        *grpc.ClientConn
 	AgentClient agentv1.AgentServiceClient
 
-	registerClusterUC usecase.RegisterClusterUseCase
+	registerClusterUC identityuc.RegisterClusterUseCase
 }
 
 func Initialize(cfg *config.Config) (*WorkerApp, error) {
-	conn, err := grpc.NewClient(
-		cfg.ServerURL,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
+	conn, err := gclient.Connect(gclient.Config{
+		Address: cfg.ServerURL,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -36,8 +36,8 @@ func Initialize(cfg *config.Config) (*WorkerApp, error) {
 	agentClient := agentv1.NewAgentServiceClient(conn)
 
 	// Registration
-	registrationClient := infra.NewRegistrationClient(agentClient)
-	registerClusterUC := usecase.NewRegisterClusterUC(registrationClient)
+	registrationClient := identityinfra.NewRegistrationClient(agentClient)
+	registerClusterUC := identityuc.NewRegisterClusterUC(registrationClient)
 
 	return &WorkerApp{
 		cfg:               cfg,

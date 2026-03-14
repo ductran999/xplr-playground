@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"play-ground/software_acrh/master_worker/internal/worker/app"
-	"play-ground/software_acrh/master_worker/internal/worker/config"
+	"play-ground/software_acrh/master_worker/internal/worker/platform/config"
 )
 
 func main() {
