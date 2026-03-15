@@ -2,7 +2,7 @@
 proto: ## Generate Go code by buf
 	@echo "Linting and generating code with buf..."
 	buf lint
-	buf generate
+	buf generate --clean
 	@echo "Done!"
 
 .PHONY: clean

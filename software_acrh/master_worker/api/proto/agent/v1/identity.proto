@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package agent.v1;
+
+option go_package = "play-ground/software_acrh/master_worker/api/proto/agent/v1;agentv1";
+
+// AgentMetadata contains runtime information about the Kubernetes environment
+// where the Agent is running. This metadata helps the Master identify
+// the exact location of the Agent inside the cluster.
+message AgentMetadata {
+  string node_name = 1;
+  string pod_name = 2;
+  string namespace = 3;
+  string hostname = 4;
+  string k8s_version = 5;
+}
+
+// RegisterRequest is sent by the Agent to authenticate and register itself
+// with the Master during the initial bootstrap process.
+message RegisterRequest {
+  string registration_token = 1;
+  string agent_version = 2;
+
+  AgentMetadata metadata = 3;
+}
+
+// RegisterResponse contains the result of the registration process.
+message RegisterResponse {
+  string cluster_id = 1; // Unique identifier of the cluster after successful authentication
+  string agent_identity = 2; // Identity token or certificate used for future authenticated connections
+  string message = 3; // Human-readable message (e.g., "Registration successful")
+}

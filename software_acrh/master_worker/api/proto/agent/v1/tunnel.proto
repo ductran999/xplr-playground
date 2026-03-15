@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package agent.v1;
+
+option go_package = "play-ground/software_acrh/master_worker/api/proto/agent/v1;agentv1";
+
+// AgentReport is sent by the Agent to report its current status and metrics.
+message ConnectTunnelRequest {
+  string cluster_id = 1; // Cluster identifier associated with this Agent
+  string status = 2; // Current agent status (e.g., "ONLINE", "BUSY")
+  bytes metrics = 3; // Encoded metrics data (JSON or Protobuf containing node/GPU information)
+  string trace_id = 4; // Trace identifier for request tracking and debugging
+}
+
+// ConnectTunnelResponse is sent by the Server to instruct the Agent to perform an action.
+message ConnectTunnelResponse {
+  string command_id = 1; // Unique command identifier (usually UUID) for request-response matching
+  string action = 2; // Command type (e.g., "DEPLOY_MODEL", "RESTART_POD")
+  bytes payload = 3; // Command payload (typically YAML or JSON configuration)
+  string trace_id = 4; // Trace identifier to correlate with Agent reports
+}

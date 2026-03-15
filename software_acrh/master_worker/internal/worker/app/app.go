@@ -2,27 +2,32 @@ package app
 
 import (
 	"context"
+	"errors"
 	"log"
 	"log/slog"
+	"os"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
 	agentv1 "play-ground/software_acrh/master_worker/api/gen/pb/agent/v1"
+	identityinfra "play-ground/software_acrh/master_worker/internal/worker/core/identity/infra"
+	identityuc "play-ground/software_acrh/master_worker/internal/worker/core/identity/usecase"
+	"play-ground/software_acrh/master_worker/internal/worker/core/monitoring/domain"
+	monitoringinfra "play-ground/software_acrh/master_worker/internal/worker/core/monitoring/infra"
+	monitoringuc "play-ground/software_acrh/master_worker/internal/worker/core/monitoring/usecase"
 	"play-ground/software_acrh/master_worker/internal/worker/platform/config"
-	identityinfra "play-ground/software_acrh/master_worker/internal/worker/platform/identity/infra"
-	identityuc "play-ground/software_acrh/master_worker/internal/worker/platform/identity/usecase"
-	gclient "play-ground/software_acrh/master_worker/internal/worker/platform/shared/grpc"
+	gclient "play-ground/software_acrh/master_worker/internal/worker/platform/grpc"
 )
 
 type WorkerApp struct {
-	cfg *config.Config
+	cfg  *config.Config
+	Conn *grpc.ClientConn
 
-	Conn        *grpc.ClientConn
-	AgentClient agentv1.AgentServiceClient
-
+	AgentClient       agentv1.AgentServiceClient
 	registerClusterUC identityuc.RegisterClusterUseCase
+	monitoringUC      monitoringuc.MonitoringUseCase
 }
 
 func Initialize(cfg *config.Config) (*WorkerApp, error) {
@@ -33,17 +38,29 @@ func Initialize(cfg *config.Config) (*WorkerApp, error) {
 		return nil, err
 	}
 
+	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	})
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+
 	agentClient := agentv1.NewAgentServiceClient(conn)
 
 	// Registration
+	runtimeInfoProvider := identityinfra.NewK8sRuntimeInfoProvider()
 	registrationClient := identityinfra.NewRegistrationClient(agentClient)
-	registerClusterUC := identityuc.NewRegisterClusterUC(registrationClient)
+	registerClusterUC := identityuc.NewRegisterClusterUC(cfg, registrationClient, runtimeInfoProvider)
+
+	// Monitoring
+	statusReporter := monitoringinfra.NewStatusReporter(agentClient)
+	monitoringUC := monitoringuc.NewMonitoringUseCase(statusReporter)
 
 	return &WorkerApp{
 		cfg:               cfg,
 		Conn:              conn,
 		AgentClient:       agentClient,
 		registerClusterUC: registerClusterUC,
+		monitoringUC:      monitoringUC,
 	}, nil
 }
 
@@ -52,6 +69,8 @@ func (wa *WorkerApp) Run(ctx context.Context) error {
 		return err
 	}
 	slog.Info("registration completed successfully!")
+
+	go wa.runHeartbeat(ctx, "agent-1", "cluster-123")
 
 	return nil
 }
@@ -66,70 +85,44 @@ func (wa *WorkerApp) Close() {
 	}
 }
 
-func StartTunnelLoop(client agentv1.AgentServiceClient, clusterID string) {
-	backoff := time.Second * 1
-	maxBackoff := time.Minute * 1
-
+func (wa *WorkerApp) runHeartbeat(ctx context.Context, agentID string, clusterID string) {
 	for {
-		log.Printf("Cluster %s: Attempting to connect to Control Plane...", clusterID)
+		log.Printf("Cluster %s: starting heartbeat loop...", clusterID)
 
-		// 1. Setup context và metadata
 		md := metadata.Pairs("x-cluster-id", clusterID)
-		ctx := metadata.NewOutgoingContext(context.Background(), md)
+		ctx := metadata.NewOutgoingContext(ctx, md)
 
-		// 2. Open stream
-		stream, err := client.ConnectTunnel(ctx)
-		if err != nil {
-			log.Printf("Connection failed: %v. Retrying in %v", err, backoff)
-			time.Sleep(backoff)
+		ticker := time.NewTicker(10 * time.Second)
+		consecutiveSuccess := 0
 
-			backoff *= 2
-			if backoff > maxBackoff {
-				backoff = maxBackoff
-			}
-			continue
-		}
-
-		backoff = time.Second * 1
-		log.Println("Tunnel established successfully.")
-
-		handleStream(stream, clusterID)
-
-		log.Println("Stream connection lost. Reconnecting...")
-	}
-}
-
-func handleStream(stream agentv1.AgentService_ConnectTunnelClient, clusterID string) {
-	done := make(chan struct{})
-
-	// Goroutine A: Listen cmd from server
-	go func() {
 		for {
-			cmd, err := stream.Recv()
-			if err != nil {
-				log.Printf("Recv error: %v", err)
-				close(done)
+			select {
+			case <-ctx.Done():
+				log.Printf("Cluster %s: heartbeat loop exiting due to context cancellation", clusterID)
+				ticker.Stop()
 				return
-			}
-			log.Printf("Executing command: %s", cmd.Action)
-		}
-	}()
 
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-done:
-			return
-		case <-ticker.C:
-			// Send heartbeat
-			err := stream.Send(&agentv1.ConnectTunnelRequest{
-				ClusterId: clusterID,
-				Status:    "ONLINE",
-			})
-			if err != nil {
-				log.Printf("Send error: %v", err)
-				return
+			case <-ticker.C:
+				err := wa.monitoringUC.SendHeartbeat(ctx, agentID)
+				if err != nil {
+					if errors.Is(err, domain.ErrAgentUnauthorized) {
+						slog.Error("Critical authentication failure",
+							"agent_id", agentID,
+							"cluster_id", clusterID,
+							"err_type", "unauthorized",
+							"action", "heartbeat_stopped",
+						)
+						return
+					}
+					slog.Error("Heartbeat failed", "error", err)
+				}
+
+				consecutiveSuccess++
+				slog.Debug("Heartbeat OK", "count", consecutiveSuccess)
+
+				if consecutiveSuccess == 1 || consecutiveSuccess%100 == 0 {
+					slog.Info("Heartbeat OK", "count", consecutiveSuccess)
+				}
 			}
 		}
 	}

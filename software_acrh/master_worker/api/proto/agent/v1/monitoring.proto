@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package agent.v1;
+
+option go_package = "play-ground/software_acrh/master_worker/api/proto/agent/v1;agentv1";
+
+// SendHeartbeatRequest
+message SendHeartbeatRequest{
+  string agent_id = 1;
+  string status   = 2;
+}
+
+// SendHeartbeatResponse
+message SendHeartbeatResponse {
+  int32 next_interval_seconds = 1;
+}
+
+// SyncClusterStatsRequest
+message SyncClusterStatsRequest {
+  int32             node_count = 1;
+  repeated NodeStat nodes      = 2;
+}
+
+// NodeStat
+message NodeStat {
+  string name      = 1;
+  float  cpu_usage = 2;
+}
+
+// SyncClusterStatsResponse
+message SyncClusterStatsResponse {}

@@ -2,9 +2,9 @@ package master
 
 import (
 	"context"
-	"errors"
 	"log"
 	pb "play-ground/software_acrh/master_worker/api/gen/pb/agent/v1"
+	"strings"
 	"sync"
 
 	"google.golang.org/grpc/codes"
@@ -68,16 +68,43 @@ func (cm *ConnectionManager) SendCommand(clusterID string, cmd *pb.ConnectTunnel
 }
 
 func (s *grpcHandler) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
-	log.Printf("Agent registering: %s (Version: %s)", req.Hostname, req.AgentVersion)
+	log.Printf("Agent registering: %v", req)
 
 	if req.RegistrationToken != "OK" {
-		return nil, errors.New("unauthorized")
+		return nil, status.Error(codes.Unauthenticated, "invalid registration token")
 	}
 
 	return &pb.RegisterResponse{
 		ClusterId:     "cluster-uuid-123",
 		AgentIdentity: "secure-jwt-or-cert-id",
 		Message:       "Registration successful",
+	}, nil
+}
+
+func (s *grpcHandler) SendHeartbeat(ctx context.Context, req *pb.SendHeartbeatRequest) (*pb.SendHeartbeatResponse, error) {
+	log.Println(req)
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "missing metadata")
+	}
+
+	authHeaders := md.Get("authorization")
+	if len(authHeaders) == 0 {
+		return nil, status.Error(codes.Unauthenticated, "missing token")
+	}
+
+	authHeader := authHeaders[0]
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		return nil, status.Error(codes.Unauthenticated, "invalid token format")
+	}
+
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+
+	log.Println("token:", token)
+
+	return &pb.SendHeartbeatResponse{
+		NextIntervalSeconds: 10,
 	}, nil
 }
 

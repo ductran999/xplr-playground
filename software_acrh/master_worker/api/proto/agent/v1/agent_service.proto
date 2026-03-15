@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package agent.v1;
+
+option go_package = "play-ground/software_acrh/master_worker/api/proto/agent/v1;agentv1";
+
+import "agent/v1/identity.proto";
+import "agent/v1/monitoring.proto";
+import "agent/v1/tunnel.proto";
+
+// AgentService defines the communication interface between the Agent and the Master server.
+service AgentService {
+  // Register allows an Agent to register with the Master using a registration token.
+  // This is typically the first step before establishing a persistent connection.
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+
+  // ConnectTunnel establishes a bidirectional streaming connection between the Agent and the Server.
+  // The Agent continuously sends status reports, while the Server sends commands in real time.
+  rpc ConnectTunnel(stream ConnectTunnelRequest) returns (stream ConnectTunnelResponse);
+
+  // SendHeartbeat is a lightweight RPC used by the Agent to periodically
+  rpc SendHeartbeat(SendHeartbeatRequest) returns (SendHeartbeatResponse);
+
+  // SyncClusterStats allows the Agent to periodically report cluster-level
+  // metrics and statistics to the Server.
+  rpc SyncClusterStats(SyncClusterStatsRequest) returns (SyncClusterStatsResponse);
+}
